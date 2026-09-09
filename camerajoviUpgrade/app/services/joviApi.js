@@ -6,6 +6,7 @@ const ROTAS_DE_ANALISE = {
   resumo: "resumo",
   flashcards: "flashcards",
   math: "math",
+  code: "codigo",
 };
 
 async function lerResposta(resposta) {
@@ -44,7 +45,7 @@ async function requisitar(caminho, opcoes) {
   }
 }
 
-export async function analisarImagem(tipo, arquivo) {
+export async function analisarImagem(tipo, arquivo, { signal } = {}) {
   const rota = ROTAS_DE_ANALISE[tipo];
 
   if (!rota) throw new Error("Tipo de análise inválido.");
@@ -55,6 +56,7 @@ export async function analisarImagem(tipo, arquivo) {
   return requisitar(rota, {
     method: "POST",
     body: formulario,
+    signal,
   });
 }
 

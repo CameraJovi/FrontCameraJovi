@@ -133,12 +133,37 @@ function DetalhesAnalise({ analise }) {
         <span className="inline-flex rounded-full border border-[#ffc107]/30 bg-[#ffc107]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#ffc107]">
           {analise.language}
         </span>
-        <div>
+        <section>
+          <h4 className="mb-2 text-xs font-bold text-[#ffc107]">Explicação do código</h4>
+          {analise.explanation?.length ? (
+            <ol className="list-decimal space-y-2 pl-4 text-xs leading-5 text-zinc-300">
+              {analise.explanation.map((passo, indice) => <li key={indice}>{passo}</li>)}
+            </ol>
+          ) : (
+            <p className="text-xs text-zinc-400">Este registro não possui explicação detalhada salva.</p>
+          )}
+          {analise.input && <p className="mt-3"><strong className="text-white">Entrada: </strong>{analise.input}</p>}
+          {analise.expected_output && <p className="mt-2"><strong className="text-white">Saída esperada: </strong>{analise.expected_output}</p>}
+          {analise.concepts?.length > 0 && <p className="mt-2"><strong className="text-white">Conceitos: </strong>{analise.concepts.join(", ")}</p>}
+        </section>
+        {analise.original_code && (
+          <details className="rounded-xl border border-white/10 p-3">
+            <summary className="cursor-pointer text-xs font-bold text-[#ffc107]">Código original</summary>
+            <pre className="mt-2 overflow-x-auto text-[11px] leading-5 text-zinc-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"><code>{analise.original_code}</code></pre>
+          </details>
+        )}
+        {analise.corrected_code?.trim() && <div>
           <strong className="mb-2 block text-xs text-zinc-400">Código corrigido</strong>
           <pre className="overflow-x-auto rounded-xl border border-white/10 bg-black/35 p-3 text-[11px] leading-5 text-zinc-200">
             <code>{analise.corrected_code}</code>
           </pre>
-        </div>
+          {analise.correction_impact && <p className="mt-2 text-xs leading-5 text-zinc-300">{analise.correction_impact}</p>}
+          {analise.changes?.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs leading-5 text-zinc-400">
+              {analise.changes.map((alteracao, indice) => <li key={indice}>{alteracao}</li>)}
+            </ul>
+          )}
+        </div>}
       </div>
     );
   }

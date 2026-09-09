@@ -5,7 +5,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import EstadoAnalise from "../components/EstadoAnalise";
 import PreviewCaptura from "../components/PreviewCaptura";
-import { analiseCodigoMock } from "../mocks/codigoMock";
+import { analisarImagem } from "../services/joviApi";
+import { adaptarAnaliseCodigo } from "../services/codeResponse";
 import { phoneFrame, phoneScreen } from "../lib/tailwind";
 import {
   carregarCadernoLocal,
@@ -16,6 +17,8 @@ import { salvarImagemDoCaderno } from "../services/cadernoImagens";
 import {
   capturaParaArquivo,
   obterCaptura,
+  obterAnalise,
+  guardarAnalise,
 } from "../services/captureSession";
 
 function IconeVoltar() {
@@ -48,6 +51,7 @@ function useArrasteScroll(eixo) {
 
   function iniciarArraste(evento) {
     if (evento.pointerType !== "mouse" || evento.button !== 0) return;
+    if (evento.target.closest("button, a, summary, input")) return;
 
     if (eixo === "x") evento.stopPropagation();
 
@@ -131,40 +135,41 @@ function useArrasteScroll(eixo) {
   };
 }
 
-function BlocoCodigo({ codigo, destaque = false, linhaDestaque }) {
+function BlocoCodigo({ codigo, destaque = false, linhaDestaque, trechos = [], versao = "antes" }) {
   const linhas = codigo.split("\n");
   const arrasteHorizontal = useArrasteScroll("x");
 
   return (
-    <div className={`overflow-hidden rounded-2xl border ${destaque ? "border-emerald-400/25 bg-emerald-400/[0.06]" : "border-white/10 bg-black/35"}`}>
+    <div className={`overflow-hidden rounded-2xl border ${destaque ? "border-[#ffc107]/35 bg-[#ffc107]/[0.04]" : "border-white/10 bg-black/35"}`}>
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
         <span className="flex gap-1.5" aria-hidden="true">
-          <i className="size-2 rounded-full bg-red-400/70" />
-          <i className="size-2 rounded-full bg-amber-300/70" />
-          <i className="size-2 rounded-full bg-emerald-400/70" />
+          <i className="size-2 rounded-full bg-zinc-700" />
+          <i className="size-2 rounded-full bg-[#ffc107]" />
+          <i className="size-2 rounded-full bg-zinc-600" />
         </span>
-        <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+        <span className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-400">
           {destaque ? "Código revisado" : "Código original"}
         </span>
       </div>
       <pre
         {...arrasteHorizontal}
-        className="cursor-grab touch-pan-x overflow-x-auto py-3 text-[11px] leading-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="cursor-grab touch-pan-x overflow-x-auto py-3 text-[13px] leading-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         <code className="block min-w-max font-mono text-zinc-200">
           {linhas.map((linha, indice) => {
             const numero = indice + 1;
-            const marcada = numero === linhaDestaque;
+            const trecho = trechos.find((item) => item[versao] === linha && linha !== "");
+            const marcada = Boolean(trecho) || numero === linhaDestaque;
 
             return (
               <span
-                className={`flex min-h-5 px-3 ${marcada ? destaque ? "bg-emerald-400/10" : "bg-red-400/10" : ""}`}
+                className={`flex min-h-5 px-3 ${marcada ? "bg-[#ffc107]/10" : ""}`}
                 key={`${numero}-${linha}`}
               >
-                <span className={`mr-4 w-4 select-none text-right ${marcada ? destaque ? "text-emerald-400" : "text-red-400" : "text-zinc-700"}`}>
+                <span className={`mr-4 w-4 select-none text-right ${marcada ? "text-[#ffc107]" : "text-zinc-400"}`}>
                   {numero}
                 </span>
-                <span>{linha || " "}</span>
+                <span>{trecho ? <TrechoAlterado texto={linha} outro={trecho[versao === "antes" ? "depois" : "antes"]} /> : linha || " "}</span>
               </span>
             );
           })}
@@ -172,6 +177,19 @@ function BlocoCodigo({ codigo, destaque = false, linhaDestaque }) {
       </pre>
     </div>
   );
+}
+
+function TrechoAlterado({ texto, outro }) {
+  let inicio = 0;
+  while (inicio < Math.min(texto.length, outro.length) && texto[inicio] === outro[inicio]) inicio++;
+  let fim = 0;
+  while (fim < Math.min(texto.length, outro.length) - inicio && texto[texto.length - 1 - fim] === outro[outro.length - 1 - fim]) fim++;
+  if (!texto) return <span className="text-zinc-400">Linha adicionada na versão seguinte.</span>;
+  return <code className="whitespace-pre-wrap break-words font-mono text-[13px] leading-6">
+    {texto.slice(0, inicio)}
+    <mark className="rounded bg-[#ffc107]/20 text-[#ffc107]">{texto.slice(inicio, texto.length - fim)}</mark>
+    {fim > 0 ? texto.slice(-fim) : ""}
+  </code>;
 }
 
 function EstadoDaAnalise({ estado, mensagem, aoTentarNovamente }) {
@@ -190,10 +208,10 @@ function EstadoDaAnalise({ estado, mensagem, aoTentarNovamente }) {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center" role="alert">
-      <span className={`grid size-16 place-items-center rounded-2xl text-2xl font-black ${semCodigo ? "bg-amber-400/10 text-amber-300" : "bg-red-400/10 text-red-400"}`}>
+      <span className="grid size-16 place-items-center rounded-2xl bg-[#ffc107]/10 text-2xl font-black text-[#ffc107]">
         {semCodigo ? "</>" : "!"}
       </span>
-      <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#ffc107]">
+      <p className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-[#ffc107]">
         {semCodigo ? "Nenhum código identificado" : "Análise interrompida"}
       </p>
       <h2 className="mt-2 text-xl font-bold">
@@ -223,28 +241,10 @@ function EstadoDaAnalise({ estado, mensagem, aoTentarNovamente }) {
   );
 }
 
-const estilosDeSeveridade = {
-  erro: {
-    rotulo: "Erro",
-    borda: "border-red-400/30",
-    fundo: "bg-red-400/[0.07]",
-    texto: "text-red-300",
-    selo: "bg-red-300 text-red-950",
-  },
-  aviso: {
-    rotulo: "Aviso",
-    borda: "border-amber-400/30",
-    fundo: "bg-amber-400/[0.07]",
-    texto: "text-amber-300",
-    selo: "bg-amber-300 text-amber-950",
-  },
-  sugestao: {
-    rotulo: "Sugestão",
-    borda: "border-sky-400/30",
-    fundo: "bg-sky-400/[0.07]",
-    texto: "text-sky-300",
-    selo: "bg-sky-300 text-sky-950",
-  },
+const rotulosDeSeveridade = {
+  erro: "Erro",
+  aviso: "Aviso",
+  sugestao: "Sugestão",
 };
 
 function criarIdRegistro() {
@@ -252,9 +252,7 @@ function criarIdRegistro() {
 }
 
 function CodigoConteudo() {
-  const parametros = useSearchParams();
-  const cenario = parametros.get("estado");
-  const [painel, setPainel] = useState("diagnostico");
+  const [painel, setPainel] = useState("explicacao");
   const [comparacao, setComparacao] = useState("corrigido");
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
@@ -262,34 +260,55 @@ function CodigoConteudo() {
   const [aviso, setAviso] = useState("");
   const [estadoAnalise, setEstadoAnalise] = useState("carregando");
   const [tentativa, setTentativa] = useState(0);
-  const analise = analiseCodigoMock;
-  const problemas = cenario === "sem-erros"
-    ? []
-    : Array.isArray(analise.problemas) ? analise.problemas : [];
-  const qualidade = problemas.length
-    ? analise.qualidade
-    : analise.qualidade.map((item) => ({
-        ...item,
-        resultado: item.estado === "ok" ? item.resultado : "Aprovada",
-        estado: "ok",
-      }));
+  const [analise, setAnalise] = useState(null);
+  const [erroAnalise, setErroAnalise] = useState("");
+  const problemas = [...(analise?.problemas || [])].sort((a, b) =>
+    Number(b.severidade === "erro") - Number(a.severidade === "erro"));
+  const temCorrecao = Boolean(analise?.codigoCorrigido?.trim());
+  const salvamentoRef = useRef(false);
+  const resultadoRef = useRef(null);
   const arrasteVertical = useArrasteScroll("y");
 
   useEffect(() => {
-    const temporizador = window.setTimeout(() => {
-      if (tentativa > 0) {
-        setEstadoAnalise("sucesso");
-      } else if (cenario === "erro") {
-        setEstadoAnalise("erro");
-      } else if (cenario === "sem-codigo") {
-        setEstadoAnalise("sem-codigo");
-      } else {
-        setEstadoAnalise("sucesso");
-      }
-    }, 1100);
+    const controller = new AbortController();
+    let ativo = true;
+    let expirou = false;
+    const timeout = window.setTimeout(() => {
+      expirou = true;
+      controller.abort();
+    }, 90000);
 
-    return () => window.clearTimeout(temporizador);
-  }, [cenario, tentativa]);
+    async function analisar() {
+      try {
+        const captura = obterCaptura();
+        if (!captura) throw new Error("Tire uma foto do código antes de iniciar a análise.");
+        const cache = tentativa === 0 ? obterAnalise("code", captura.id) : null;
+        const resposta = cache || await analisarImagem("code",
+          await capturaParaArquivo(captura), { signal: controller.signal });
+        if (!ativo) return;
+        const resultado = adaptarAnaliseCodigo(resposta);
+        // A falta de espaço no cache não invalida uma resposta já recebida.
+        try { guardarAnalise("code", captura.id, resposta); } catch {}
+        setAnalise(resultado);
+        setEstadoAnalise(resultado ? "sucesso" : "sem-codigo");
+        setErroAnalise("");
+      } catch (erro) {
+        if (!ativo) return;
+        setErroAnalise(expirou
+          ? "A análise demorou mais que o esperado. Tente novamente."
+          : erro.message || "Não foi possível analisar o código.");
+        setEstadoAnalise("erro");
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+    analisar();
+    return () => {
+      ativo = false;
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [tentativa]);
 
   function tentarNovamente() {
     setEstadoAnalise("carregando");
@@ -307,7 +326,8 @@ function CodigoConteudo() {
   }
 
   async function salvarNoCaderno() {
-    if (salvando) return;
+    if (salvamentoRef.current || salvo) return;
+    salvamentoRef.current = true;
 
     setSalvando(true);
     setSalvo(false);
@@ -318,6 +338,16 @@ function CodigoConteudo() {
       const dados = carregarCadernoLocal();
       const id = criarIdRegistro();
       const captura = obterCaptura();
+      const chaveAnalise = JSON.stringify([
+        captura?.id || "demonstracao", analise.codigoOriginal,
+        analise.codigoCorrigido, analise.explicacao,
+      ]);
+      if (dados.historico.some((item) => item.chaveAnalise === chaveAnalise)) {
+        salvarMateriaSelecionada(materia);
+        setSalvo(true);
+        setAviso("Salvo anteriormente em Programação no Caderno Inteligente.");
+        return;
+      }
       let imagemId = null;
 
       if (captura) {
@@ -333,6 +363,7 @@ function CodigoConteudo() {
 
       const registro = {
         id,
+        chaveAnalise,
         materia,
         tipo: "código",
         assunto: analise.titulo,
@@ -344,7 +375,13 @@ function CodigoConteudo() {
           content: analise.resumo,
           language: analise.linguagem,
           original_code: analise.codigoOriginal,
-          corrected_code: analise.codigoCorrigido,
+          corrected_code: analise.codigoCorrigido?.trim() || null,
+          explanation: analise.explicacao || [],
+          input: analise.entrada || "",
+          expected_output: analise.saida || "",
+          concepts: analise.conceitos || [],
+          changes: analise.codigoCorrigido?.trim() ? analise.alteracoes || [] : [],
+          correction_impact: analise.codigoCorrigido?.trim() ? analise.impactoCorrecao || "" : "",
           issues: problemas,
         },
       };
@@ -372,6 +409,7 @@ function CodigoConteudo() {
     } catch (erro) {
       setAviso(erro.message || "Não foi possível salvar a análise.");
     } finally {
+      salvamentoRef.current = false;
       setSalvando(false);
     }
   }
@@ -395,6 +433,7 @@ function CodigoConteudo() {
         {estadoAnalise !== "sucesso" ? (
           <EstadoDaAnalise
             estado={estadoAnalise}
+            mensagem={erroAnalise}
             aoTentarNovamente={tentarNovamente}
           />
         ) : (
@@ -405,13 +444,13 @@ function CodigoConteudo() {
           <div className="mb-4 overflow-hidden rounded-3xl border border-white/10 bg-[#222]">
             <div className="relative h-32 bg-black">
               <PreviewCaptura className="h-full w-full object-cover opacity-80" alternativa={false} />
-              <span className="absolute bottom-3 left-3 rounded-full bg-black/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-200 backdrop-blur">
+              <span className="absolute bottom-3 left-3 rounded-full bg-black/75 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-zinc-200 backdrop-blur">
                 Código capturado
               </span>
             </div>
             <div className="flex items-center justify-between gap-3 p-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500">
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-zinc-400">
                   Linguagem identificada
                 </p>
                 <div className="mt-1 flex items-center gap-2 font-bold">
@@ -422,14 +461,14 @@ function CodigoConteudo() {
                 </div>
               </div>
               <span className="rounded-full border border-[#ffc107]/30 bg-[#ffc107]/10 px-3 py-1.5 text-xs font-semibold text-[#ffc107]">
-                {analise.confianca}% de confiança
+                Código identificado
               </span>
             </div>
           </div>
 
           <section aria-labelledby="titulo-analise">
             <div className="mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ffc107]">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#ffc107]">
                 Verificação do código
               </p>
               <h2 id="titulo-analise" className="mt-1 text-xl font-bold leading-tight">
@@ -438,143 +477,37 @@ function CodigoConteudo() {
               <p className="mt-2 text-sm leading-5 text-zinc-400">{analise.resumo}</p>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-white/10 bg-[#202020] p-3">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-600">Complexidade</span>
-                <strong className="mt-1 block text-sm text-white">{analise.complexidade}</strong>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-[#202020] p-3">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-600">Tamanho</span>
-                <strong className="mt-1 block text-sm text-white">{analise.totalLinhas} linhas</strong>
-              </div>
-              <div className={`rounded-2xl border p-3 ${problemas.length ? "border-amber-400/25 bg-amber-400/[0.07]" : "border-emerald-400/25 bg-emerald-400/[0.07]"}`}>
-                <span className={`text-[9px] font-bold uppercase tracking-wider ${problemas.length ? "text-amber-300/60" : "text-emerald-300/60"}`}>Diagnóstico</span>
-                <strong className={`mt-1 block text-sm ${problemas.length ? "text-amber-300" : "text-emerald-300"}`}>
-                  {problemas.length ? `${problemas.length} ajustes` : "Sem erros"}
-                </strong>
-              </div>
-            </div>
-
-            <BlocoCodigo
-              codigo={analise.codigoOriginal}
-              linhaDestaque={problemas[0]?.linha}
-            />
-
-            <div className="mt-4 rounded-2xl border border-white/10 bg-[#202020] p-4">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#ffc107]">Raio-X do código</p>
-                  <h3 className="mt-1 text-sm font-bold">Análise de qualidade</h3>
-                </div>
-                <span className="text-[10px] text-zinc-500">4 verificações</span>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {qualidade.map((item) => (
-                  <div className="flex items-center gap-2 rounded-xl bg-black/25 p-2.5" key={item.nome}>
-                    <span className={`grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-black ${item.estado === "ok" ? "bg-emerald-400/15 text-emerald-400" : "bg-red-400/15 text-red-400"}`}>
-                      {item.estado === "ok" ? "✓" : "!"}
-                    </span>
-                    <span className="min-w-0">
-                      <strong className="block text-[11px] text-zinc-200">{item.nome}</strong>
-                      <small className={`block truncate text-[9px] ${item.estado === "ok" ? "text-zinc-500" : "text-red-300"}`}>{item.resultado}</small>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {problemas.length ? (
-              <section className="my-4" aria-labelledby="problemas-codigo">
-                <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                  <h3 id="problemas-codigo" className="text-sm font-bold text-white">
-                    Pontos para revisar
-                  </h3>
-                  <span className="text-[10px] font-bold text-zinc-500">
-                    {problemas.length} {problemas.length === 1 ? "encontrado" : "encontrados"}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {problemas.map((problema, indice) => {
-                    const estilo = estilosDeSeveridade[problema.severidade] || estilosDeSeveridade.aviso;
-
-                    return (
-                      <article className={`rounded-2xl border p-4 ${estilo.borda} ${estilo.fundo}`} key={`${problema.linha}-${problema.titulo}`}>
-                        <div className="flex items-center justify-between gap-3">
-                          <span className={`text-[10px] font-extrabold uppercase tracking-wider ${estilo.texto}`}>
-                            {indice + 1}. {estilo.rotulo}
-                          </span>
-                          <span className={`rounded-full px-2 py-1 text-[9px] font-extrabold ${estilo.selo}`}>
-                            LINHA {problema.linha}
-                          </span>
-                        </div>
-                        <h4 className="mt-2.5 text-sm font-bold">{problema.titulo}</h4>
-                        <p className="mt-1 text-xs leading-5 text-zinc-400">{problema.descricao}</p>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : (
-              <div className="my-4 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.07] p-4">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-9 place-items-center rounded-full bg-emerald-400/15 font-black text-emerald-400">✓</span>
-                  <div>
-                    <strong className="block text-sm text-emerald-300">Nenhum problema encontrado</strong>
-                    <p className="mt-1 text-[11px] leading-4 text-zinc-400">A análise não encontrou erros ou avisos neste código.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
+            <div className="mb-4 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setPainel("explicacao")}
+                onClick={() => { setPainel("explicacao"); requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }}
                 className={`rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-[0.98] ${painel === "explicacao" ? "border-[#ffc107] bg-[#ffc107] text-black" : "border-white/15 bg-[#222] text-white"}`}
               >
                 Explicar código
               </button>
               <button
                 type="button"
-                onClick={() => setPainel("correcao")}
+                onClick={() => { setPainel("correcao"); requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })); }}
                 className={`rounded-2xl border px-3 py-3 text-sm font-bold transition active:scale-[0.98] ${painel === "correcao" ? "border-[#ffc107] bg-[#ffc107] text-black" : "border-white/15 bg-[#222] text-white"}`}
               >
                 Jovi Code
               </button>
             </div>
+
+
+
+
           </section>
 
+          <div ref={resultadoRef} className="scroll-mt-4" />
           {painel === "explicacao" && (
             <section className="mt-4 rounded-3xl border border-white/10 bg-[#202020] p-4" aria-labelledby="titulo-explicacao">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ffc107]">Passo a passo</p>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#ffc107]">Passo a passo</p>
               <h2 id="titulo-explicacao" className="mt-1 text-lg font-bold">O que este código faz</h2>
 
-              <div className="mt-4 grid gap-2">
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Entrada</span>
-                  <p className="mt-1 text-xs leading-5 text-zinc-300">{analise.entrada}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">Saída esperada</span>
-                  <p className="mt-1 text-xs leading-5 text-zinc-300">{analise.saida}</p>
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Conceitos encontrados</span>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {analise.conceitos.map((conceito) => (
-                    <span className="rounded-full border border-[#ffc107]/20 bg-[#ffc107]/5 px-2.5 py-1 text-[10px] font-semibold text-[#ffc107]" key={conceito}>
-                      {conceito}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <h3 className="mt-5 text-sm font-bold text-white">Fluxo da lógica</h3>
               <ol className="mt-4 space-y-4">
                 {analise.explicacao.map((passo, indice) => (
-                  <li className="flex gap-3 text-sm leading-5 text-zinc-300" key={passo}>
+                  <li className="flex gap-3 text-base leading-6 text-zinc-300" key={passo}>
                     <span className="grid size-7 shrink-0 place-items-center rounded-full border border-[#ffc107]/40 text-xs font-bold text-[#ffc107]">
                       {indice + 1}
                     </span>
@@ -582,48 +515,76 @@ function CodigoConteudo() {
                   </li>
                 ))}
               </ol>
+
+            {problemas.length ? (
+              <section className="my-4" aria-labelledby="problemas-codigo">
+                <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                  <h3 id="problemas-codigo" className="text-sm font-bold text-white">
+                    Pontos para revisar
+                  </h3>
+                  <span className="text-xs font-bold text-zinc-400">
+                    {problemas.length} {problemas.length === 1 ? "encontrado" : "encontrados"}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {problemas.map((problema, indice) => {
+                    const rotulo = rotulosDeSeveridade[problema.severidade] || "Aviso";
+
+                    return (
+                      <details open={indice === 0 && problema.severidade === "erro"} className="group rounded-2xl border border-white/15 bg-[#202020] p-4" key={`${problema.linha}-${problema.titulo}`}>
+                        <summary className="cursor-pointer marker:text-[#ffc107]">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs font-extrabold uppercase tracking-wider text-[#ffc107]">
+                            {indice + 1}. {rotulo}
+                          </span>
+                          <span className="rounded-full border border-[#ffc107]/30 bg-[#ffc107]/10 px-2 py-1 text-xs font-extrabold text-[#ffc107]">
+                            LINHA {problema.linha}
+                          </span>
+                        </div>
+                        <h4 className="mt-2.5 text-sm font-bold">{problema.titulo}</h4>
+                        </summary>
+                        <code className="mt-3 block whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3 text-sm leading-6 text-[#ffc107]">
+                          {analise.codigoOriginal.split("\n")[problema.linha - 1] || "Trecho não disponível"}
+                        </code>
+                        <p className="mt-2 text-sm leading-6 text-zinc-300">{problema.descricao}</p>
+                      </details>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : (
+              <div className="my-4 rounded-2xl border border-[#ffc107]/25 bg-[#ffc107]/[0.06] p-4">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-9 place-items-center rounded-full bg-[#ffc107]/15 font-black text-[#ffc107]">✓</span>
+                  <div>
+                    <strong className="block text-sm text-[#ffc107]">Nenhum problema encontrado</strong>
+                    <p className="mt-1 text-[13px] leading-4 text-zinc-400">A análise não encontrou erros ou avisos neste código.</p>
+                  </div>
+                </div>
+              </div>
+            )}
             </section>
           )}
 
-          {painel === "correcao" && (
+          {painel === "correcao" && !temCorrecao && (
+            <section className="mt-4 rounded-2xl border border-[#ffc107]/25 p-4">
+              <h2 className="font-bold text-[#ffc107]">Nenhuma correção proposta</h2>
+              <p className="mt-2 text-sm text-zinc-300">Nenhuma alteração foi proposta. Consulte a explicação e os pontos de revisão antes de utilizar o código.</p>
+            </section>
+          )}
+          {painel === "correcao" && temCorrecao && (
             <section className="mt-4 rounded-3xl border border-white/10 bg-[#202020] p-4" aria-labelledby="titulo-correcao">
-              <div className="flex items-center gap-3">
-                <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-[#ffc107] text-black">
-                  <IconeCodigo />
-                </span>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#ffc107]">Jovi Code</p>
-                  <h2 id="titulo-correcao" className="text-lg font-bold">Correção inteligente</h2>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
-                <div className="flex items-center justify-between">
-                  <strong className="text-xs text-emerald-400">Correção pronta</strong>
-                  <span className="rounded-full bg-emerald-400/15 px-2 py-1 text-[9px] font-bold text-emerald-300">
-                    {analise.alteracoes.length} ALTERAÇÕES
-                  </span>
-                </div>
-                <p className="mt-2 text-[11px] leading-[1.55] text-zinc-400">{analise.impactoCorrecao}</p>
-              </div>
-
-              <p className="mt-3 rounded-xl border border-[#ffc107]/20 bg-[#ffc107]/5 p-3 text-[10px] leading-[1.5] text-zinc-400">
-                <strong className="text-[#ffc107]">Importante:</strong> a correção é uma sugestão. Revise antes de utilizar.
-              </p>
-
-              <h3 className="mt-4 text-xs font-bold text-zinc-300">Compare as versões</h3>
-
-              <div className="my-4 grid grid-cols-2 rounded-xl bg-black/30 p-1" role="tablist" aria-label="Versões do código">
+              <h2 id="titulo-correcao" className="text-lg font-bold">Jovi Code</h2>
+              <div className="my-4 grid grid-cols-2 rounded-xl bg-black/30 p-1" role="group" aria-label="Versões do código">
                 {[
-                  ["original", "Original"],
-                  ["corrigido", "Corrigido"],
+                  ["original", "Antes"],
+                  ["corrigido", "Depois"],
                 ].map(([valor, rotulo]) => (
                   <button
                     type="button"
-                    role="tab"
-                    aria-selected={comparacao === valor}
+                    aria-pressed={comparacao === valor}
                     onClick={() => setComparacao(valor)}
-                    className={`rounded-lg py-2 text-xs font-bold ${comparacao === valor ? "bg-white/10 text-white" : "text-zinc-500"}`}
+                    className={`min-h-11 rounded-lg py-2 text-sm font-bold ${comparacao === valor ? "bg-white/10 text-white" : "text-zinc-400"}`}
                     key={valor}
                   >
                     {rotulo}
@@ -634,6 +595,8 @@ function CodigoConteudo() {
               <BlocoCodigo
                 codigo={comparacao === "original" ? analise.codigoOriginal : analise.codigoCorrigido}
                 destaque={comparacao === "corrigido"}
+                trechos={analise.comparacoes}
+                versao={comparacao === "corrigido" ? "depois" : "antes"}
                 linhaDestaque={comparacao === "original" ? problemas[0]?.linha : undefined}
               />
 
@@ -641,24 +604,16 @@ function CodigoConteudo() {
                 <button
                   type="button"
                   onClick={copiarCodigo}
-                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-bold transition active:scale-[0.99] ${copiado ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/15 bg-white/[0.04] text-white"}`}
+                  className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-bold transition active:scale-[0.99] ${copiado ? "border-[#ffc107]/30 bg-[#ffc107]/10 text-[#ffc107]" : "border-white/15 bg-white/[0.04] text-white"}`}
                 >
                   <span aria-hidden="true">{copiado ? "✓" : "▣"}</span>
                   {copiado ? "Código copiado!" : "Copiar código corrigido"}
                 </button>
               )}
 
-              <div className="mt-4 border-t border-white/10 pt-4">
-                <h3 className="text-xs font-bold text-white">O que a Jovi alterou</h3>
-                <ul className="mt-3 space-y-2">
-                {analise.alteracoes.map((alteracao) => (
-                  <li className="flex gap-2 text-xs leading-5 text-zinc-400" key={alteracao}>
-                    <span className="mt-1 text-emerald-400">✓</span>
-                    {alteracao}
-                  </li>
-                ))}
-                </ul>
-              </div>
+              <p className="mt-3 text-sm leading-6 text-zinc-300">
+                A correção é uma sugestão. Revise antes de utilizar.
+              </p>
             </section>
           )}
 
@@ -666,7 +621,7 @@ function CodigoConteudo() {
             <button
               type="button"
               onClick={salvarNoCaderno}
-              disabled={salvando}
+              disabled={salvando || salvo}
               className="w-full rounded-2xl bg-[#ffc107] px-4 py-4 text-sm font-extrabold text-black transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
             >
               {salvando
@@ -676,7 +631,7 @@ function CodigoConteudo() {
                   : "Salvar no Caderno Inteligente"}
             </button>
             {aviso && (
-              <p className="mt-3 text-center text-xs leading-5 text-zinc-400" role="status" aria-live="polite">
+              <p className="mt-3 text-center text-sm leading-6 text-zinc-400" role="status" aria-live="polite">
                 {aviso}
               </p>
             )}
@@ -693,10 +648,15 @@ function CodigoConteudo() {
   );
 }
 
+function CenarioCodigo() {
+  const parametros = useSearchParams();
+  return <CodigoConteudo key={parametros.get("estado") || "normal"} />;
+}
+
 export default function Codigo() {
   return (
     <Suspense fallback={null}>
-      <CodigoConteudo />
+      <CenarioCodigo />
     </Suspense>
   );
 }
