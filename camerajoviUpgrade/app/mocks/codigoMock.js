@@ -1,6 +1,5 @@
 export const analiseCodigoMock = {
   linguagem: "JavaScript",
-  confianca: 96,
   titulo: "Cálculo de média das notas",
   resumo:
     "O código soma as notas de uma lista, calcula a média da turma e exibe o resultado no console.",
@@ -9,12 +8,6 @@ export const analiseCodigoMock = {
   entrada: "Uma lista numérica de notas: [8, 7, 9]",
   saida: "A média 8 é exibida no console.",
   conceitos: ["Array", "Função", "reduce", "Callback", "Escopo"],
-  qualidade: [
-    { nome: "Sintaxe", resultado: "Aprovada", estado: "ok" },
-    { nome: "Escopo", resultado: "1 problema", estado: "erro" },
-    { nome: "Manutenção", resultado: "1 aviso", estado: "erro" },
-    { nome: "Segurança", resultado: "Sem riscos", estado: "ok" },
-  ],
   codigoOriginal: `const notas = [8, 7, 9];
 
 function calcularMedia() {
@@ -67,6 +60,29 @@ console.log("Média:", calcularMedia(notas));`,
     "“nota.length” foi substituído por “valores.length”.",
     "A saída agora identifica o resultado com o rótulo “Média:”.",
   ],
+  comparacoes: [
+    { antes: "function calcularMedia() {", depois: "function calcularMedia(valores) {", motivo: "Receber a lista como parâmetro permite reutilizar a função." },
+    { antes: "", depois: "  if (!valores.length) return 0;", motivo: "A proteção define o retorno para uma lista vazia." },
+    { antes: "  const total = notas.reduce((soma, nota) => soma + nota, 0);", depois: "  const total = valores.reduce((soma, nota) => soma + nota, 0);", motivo: "A soma passa a usar a lista recebida." },
+    { antes: "  return total / nota.length;", depois: "  return total / valores.length;", motivo: "Corrige a referência fora do escopo e usa a quantidade de notas." },
+    { antes: "console.log(calcularMedia());", depois: 'console.log("Média:", calcularMedia(notas));', motivo: "Envia a lista para a função e identifica o resultado." },
+  ],
   impactoCorrecao:
     "A função passa a acessar a lista que realmente existe no escopo e consegue calcular a média sem gerar ReferenceError.",
+};
+
+export const analiseSemErrosMock = {
+  ...analiseCodigoMock,
+  codigoOriginal: analiseCodigoMock.codigoCorrigido,
+  codigoCorrigido: null,
+  problemas: [],
+  alteracoes: [],
+  comparacoes: [],
+  impactoCorrecao: "",
+  explicacao: [
+    "A lista notas contém os valores 8, 7 e 9.",
+    "A função recebe a lista como parâmetro e retorna 0 se ela estiver vazia.",
+    "O reduce soma os valores; o total é dividido pela quantidade de itens.",
+    "O console apresenta o rótulo Média: seguido do valor 8.",
+  ],
 };
