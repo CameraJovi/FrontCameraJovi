@@ -1,5 +1,7 @@
 import "./globals.css";
 
+export const viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
+
 export const metadata = {
   metadataBase: new URL("https://camerajovi-kappa.vercel.app"),
   title: "Câmera Jovi | Estude com inteligência",
@@ -26,7 +28,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
-      <body className="flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#111] font-sans">
+      <body className="flex min-h-dvh w-full items-center justify-center overflow-x-hidden bg-[#111] font-sans">
         {children}
       </body>
     </html>

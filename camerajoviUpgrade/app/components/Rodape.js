@@ -28,7 +28,7 @@ export default function Rodape({
   return (
     <footer className="shrink-0 bg-[#1e1e1e]">
       {!painelMaisAberto && (
-        <section className="flex items-center justify-between px-7 pb-2.5 pt-4" aria-label="Controles de captura">
+        <section className="flex items-center justify-between px-7 pb-2.5 pt-4 [@media(max-height:500px)]:py-2" aria-label="Controles de captura">
           <button
             className={`flex size-[52px] cursor-pointer items-center justify-center rounded-[10px] border-2 border-[#ffc107] bg-[#ffc107] text-white [&_svg]:size-[26px] ${
               modoAtivo === "Estudante" ? "pointer-events-none opacity-0" : ""
@@ -83,10 +83,10 @@ export default function Rodape({
         </section>
       )}
 
-      <nav className="flex snap-x snap-mandatory items-center justify-start gap-2.5 overflow-x-auto scroll-smooth px-[calc(50%_-_45px)] pb-5 pt-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Modos da câmera">
+      <nav className="flex snap-x snap-mandatory items-center justify-start gap-2.5 overflow-x-auto scroll-smooth px-[calc(50%_-_45px)] pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Modos da câmera">
         {modos.map((modo) => (
           <button
-            className={`min-w-[90px] shrink-0 snap-center cursor-pointer border-0 bg-transparent px-[15px] py-1.5 text-xs font-semibold uppercase tracking-[0.1em] ${modo === modoAtivo ? "font-extrabold text-[#ffc107]" : "text-white/40"}`}
+            className={`min-h-11 min-w-[90px] shrink-0 snap-center cursor-pointer border-0 bg-transparent px-[15px] py-1.5 text-xs font-semibold uppercase tracking-[0.1em] ${modo === modoAtivo ? "font-extrabold text-[#ffc107]" : "text-white/40"}`}
             type="button"
             aria-pressed={modo === modoAtivo}
             onClick={() => aoSelecionarModo(modo)}

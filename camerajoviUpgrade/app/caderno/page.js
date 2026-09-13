@@ -206,7 +206,7 @@ export default function Caderno() {
           textoVoltar="Câmera"
         />
 
-        <div className={`${actionBody} gap-[18px]`}>
+        <div className={`${actionBody} gap-[18px] [&>*]:shrink-0`}>
           <header className="rounded-xl border-l-[3px] border-[#ffc107] bg-[#242424] p-4">
             <span className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-[#ffc107]">Biblioteca de estudos</span>
             <h2 className="mt-1 text-lg font-bold text-white">{selecionada || "Suas matérias"}</h2>
@@ -215,6 +215,8 @@ export default function Caderno() {
               por matéria.
             </p>
           </header>
+
+          <Link href="/horarios" className="rounded-xl border border-[#ffc107]/30 p-4 text-sm font-bold text-[#ffc107]">Horário de aulas · Configurar minha semana</Link>
 
           {carregando ? (
             <p className="rounded-xl border border-[#333] bg-[#242424] px-[18px] py-7 text-center text-[11px] text-[#999]">Carregando caderno...</p>
@@ -227,7 +229,7 @@ export default function Caderno() {
               )}
 
               <nav
-                className="flex max-w-full cursor-grab select-none gap-2 overflow-x-auto overscroll-x-contain pb-[3px] [scrollbar-width:none] [touch-action:pan-y] [&::-webkit-scrollbar]:hidden"
+                className="flex min-h-12 w-full max-w-full shrink-0 cursor-grab select-none items-center gap-2 overflow-x-auto overscroll-x-contain pb-[3px] [scrollbar-width:none] [touch-action:pan-y] [&::-webkit-scrollbar]:hidden"
                 aria-label="Matérias do caderno"
                 onPointerDown={iniciarArrasteMaterias}
                 onPointerMove={moverMaterias}
@@ -237,7 +239,7 @@ export default function Caderno() {
               >
                 {materias.map((materia) => (
                   <button
-                    className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-2 text-[10px] ${materia === selecionada ? "border-[#ffc107] bg-[#ffc107]/10 text-[#ffc107]" : "border-[#3a3a3a] bg-[#242424] text-[#aaa]"}`}
+                    className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-2 text-[10px] ${materia === selecionada ? "border-[#ffc107] bg-[#ffc107]/10 text-[#ffc107]" : "border-[#3a3a3a] bg-[#242424] text-[#aaa]"}`}
                     type="button"
                     aria-pressed={materia === selecionada}
                     onClick={() => selecionarMateria(materia)}

@@ -1,6 +1,6 @@
 # Câmera Jovi — API Python
 
-Backend do Câmera Jovi desenvolvido com FastAPI. A API recebe imagens capturadas pelo frontend React, utiliza o Google Gemini para interpretar o conteúdo e devolve respostas em JSON para as páginas de resumo, flashcards e matemática.
+Backend do Câmera Jovi desenvolvido com FastAPI. A API recebe imagens capturadas pelo frontend React, utiliza o Google Gemini para interpretar o conteúdo e devolve respostas em JSON para as páginas de resumo, flashcards, matemática e código.
 
 ## Tecnologias utilizadas
 
@@ -20,6 +20,7 @@ Backend do Câmera Jovi desenvolvido com FastAPI. A API recebe imagens capturada
 - geração de resumo inteligente;
 - criação de flashcards;
 - identificação e resolução de exercícios matemáticos;
+- Jovi Code: transcrição, linguagem, explicação, diagnósticos por linha e correção opcional, sem executar código;
 - normalização das respostas do Gemini para JSON;
 - salvamento das análises em arquivos `.txt` organizados por matéria;
 - endpoint de verificação da API.
@@ -131,7 +132,7 @@ http://127.0.0.1:8000/docs
 Em outro terminal, partindo da raiz do repositório, execute:
 
 ```bash
-cd camerajovi
+cd camerajoviUpgrade
 npm install
 npm run dev
 ```
@@ -152,9 +153,10 @@ O CORS da API está configurado para aceitar o frontend local nas portas e ender
 | `POST` | `/api/resumo` | Gera um resumo a partir de uma imagem |
 | `POST` | `/api/flashcards` | Gera flashcards a partir de uma imagem |
 | `POST` | `/api/math` | Identifica e resolve um exercício matemático |
+| `POST` | `/api/codigo` | Analisa código fotografado e retorna explicação, problemas e correção opcional |
 | `POST` | `/api/salvar` | Salva uma análise em arquivo `.txt` |
 
-Os endpoints de resumo, flashcards e matemática recebem `multipart/form-data` com a imagem no campo `image`.
+Os endpoints de resumo, flashcards, matemática e código recebem `multipart/form-data` com a imagem no campo `image`.
 
 O endpoint de salvamento recebe JSON no seguinte formato:
 
@@ -210,4 +212,17 @@ Fechar o terminal ou pressionar `Ctrl + C` encerra o backend.
 ## Jovi Code
 
 Análise de código por foto disponível em `POST /api/codigo`. Veja o [contrato, configuração e testes](CODIGO.md).
+A grade de aulas e a associação por horário são processadas no frontend, sem chamada ao Gemini. Fotos simples do Scan e registros de Jovi Code são guardados no Caderno local; esse fluxo não equivale a sincronização de dados no servidor.
 
+O endpoint de código valida a resposta estruturada antes de entregá-la ao frontend. Sem código legível, retorna `status: "no_code"`; falhas de análise retornam HTTP 502. `GEMINI_CODE_MODEL` pode ser configurado no `.env` para substituir o modelo padrão somente na análise de código.
+
+## Testes de código
+
+Com o ambiente virtual ativo, na pasta `python`:
+
+```bash
+python -m pip install httpx
+python -m unittest test_code_analysis -v
+```
+
+Os testes simulam o provedor Gemini e não consomem a API. A validação real requer uma chave válida, acesso ao modelo configurado e conectividade.

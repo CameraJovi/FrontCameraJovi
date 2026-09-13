@@ -6,7 +6,9 @@ import Cabecalho from "./components/Cabecalho";
 import CorpoCamera from "./components/CorpoCamera";
 import Rodape from "./components/Rodape";
 import { phoneFrame, phoneScreen } from "./lib/tailwind";
-import { guardarCaptura } from "./services/captureSession";
+import { guardarCaptura, guardarAnalise } from "./services/captureSession";
+
+import { salvarFotoDaAula } from "./services/salvarFotoDaAula";
 
 const modosDaCamera = ["Retrato", "Vídeo", "Foto", "Estudante", "Pro", "Mais"];
 const modosExtras = [
@@ -37,6 +39,7 @@ function CameraJovi() {
   const router = useRouter();
   const parametros = useSearchParams();
   const cameraRef = useRef(null);
+  const capturaEmAndamento = useRef(false);
   const [modoAtivo, setModoAtivo] = useState(
     parametros.get("modo") === "estudante" ? "Estudante" : "Foto",
   );
@@ -94,12 +97,9 @@ function CameraJovi() {
       return;
     }
 
-    if (!rotas[acaoEstudante]) {
-      setMensagemCaptura(
-        "Escolha Scan, Flashcard, Math ou Código antes de capturar.",
-      );
-      return;
-    }
+    if (capturaEmAndamento.current) return;
+    capturaEmAndamento.current = true;
+    const instante = new Date();
 
     try {
       setCapturando(true);
@@ -108,12 +108,27 @@ function CameraJovi() {
 
       if (!imagem) throw new Error("A câmera ainda não está pronta.");
 
-      await guardarCaptura(imagem);
+      const captura = await guardarCaptura(imagem, { modo: modoAtivo, instante });
+      if (!acaoEstudante) {
+        if (captura.aula) {
+          const materia = await salvarFotoDaAula(captura, imagem);
+          setMensagemCaptura(`Foto salva em ${materia} no Caderno!`);
+        } else {
+          guardarAnalise("scan", captura.id, {
+            analysis_type: "scan",
+            subject: "Foto da aula",
+            content: "Foto capturada no Modo Estudante. Escolha a disciplina.",
+          });
+          router.push("/salvar");
+        }
+        return;
+      }
       setMensagemCaptura("Foto capturada!");
       router.push(rotas[acaoEstudante]);
     } catch (erro) {
       setMensagemCaptura(erro.message || "Não foi possível capturar a foto.");
     } finally {
+      capturaEmAndamento.current = false;
       setCapturando(false);
     }
   }

@@ -44,7 +44,7 @@ export default function Scan() {
 
   return (
     <main className={phoneFrame}>
-      <section className={`${phoneScreen} relative bg-[#1a1a1a] px-6 pb-5 text-white`}>
+      <section className={`${phoneScreen} relative overflow-y-auto bg-[#1a1a1a] px-4 pb-5 sm:px-6 text-white`}>
         <header className="flex shrink-0 items-center justify-between border-b border-[#2a2a2a] pb-4 pt-6">
           <Link className="flex items-center gap-1.5 text-sm font-medium text-[#ffc107] no-underline" href="/">Cancelar</Link>
           <h1 className="text-base font-semibold text-white">Scan</h1>
@@ -59,11 +59,11 @@ export default function Scan() {
 
         {aviso && <p className="rounded-md bg-[#ffc107] px-3.5 py-2 text-center text-[11px] font-bold text-[#1a1a1a]">{aviso}</p>}
 
-        <div className="my-[18px] mb-6 flex min-h-[220px] max-h-80 flex-1 items-center justify-center overflow-hidden rounded-[20px] bg-[#2c2c2c] [&_img]:size-full [&_img]:object-cover">
+        <div className="my-[18px] mb-6 flex min-h-[120px] max-h-80 shrink-0 flex-1 items-center justify-center overflow-hidden rounded-[20px] bg-[#2c2c2c] [&_img]:size-full [&_img]:object-cover">
           <PreviewCaptura alternativa={false} />
         </div>
 
-        <div className="flex flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex flex-col gap-3 min-h-24 shrink-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {acoesDoScan.map((acao) => (
             <CardAcaoScan {...acao} key={acao.tipo} />
           ))}
