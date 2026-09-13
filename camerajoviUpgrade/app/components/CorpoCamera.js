@@ -392,7 +392,7 @@ const CorpoCamera = forwardRef(function CorpoCamera(
   }
 
   return (
-    <section className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-black">
+    <section className="relative flex min-h-[220px] flex-1 items-center justify-center overflow-hidden bg-black">
       <video
         className={`absolute inset-0 z-0 size-full object-cover ${cameraFrontal ? "-scale-x-100" : ""}`}
         ref={videoRef}
@@ -449,7 +449,7 @@ const CorpoCamera = forwardRef(function CorpoCamera(
       )}
 
       {modoEstudante && !acaoEstudante && (
-        <div className="absolute bottom-5 left-1/2 z-[3] grid w-[calc(100%-24px)] -translate-x-1/2 grid-cols-5 gap-1.5">
+        <div className="absolute bottom-5 left-1/2 z-[3] grid w-[calc(100%-24px)] max-w-[460px] -translate-x-1/2 grid-cols-5 gap-1.5">
           {acoesEstudante.map((acao) => (
             <CardEstudante
               id={acao.id}

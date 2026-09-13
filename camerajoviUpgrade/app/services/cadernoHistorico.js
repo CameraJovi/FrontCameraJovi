@@ -1,3 +1,5 @@
+import { carregarGrade } from "./gradeAulas.js";
+
 const CHAVE_MATERIAS = "jovi:materias";
 const CHAVE_HISTORICO = "jovi:historico";
 const CHAVE_MATERIA_SELECIONADA = "jovi:materia-selecionada";
@@ -39,6 +41,19 @@ export function carregarCadernoLocal() {
       ...historico.map((item) => item.materia).filter(Boolean),
     ]),
   ];
+  // A grade também é fonte de disciplinas, mesmo antes da primeira captura.
+  for (const aula of carregarGrade()) {
+    const nome = aula.materia.trim();
+    if (
+      !nomesDasMaterias.some(
+        (existente) =>
+          existente.trim().toLocaleLowerCase("pt-BR") ===
+          nome.toLocaleLowerCase("pt-BR"),
+      )
+    ) {
+      nomesDasMaterias.push(nome);
+    }
+  }
   const materias = nomesDasMaterias.map((nome) => ({
     nome,
     quantidade: historico.filter((item) => item.materia === nome).length,

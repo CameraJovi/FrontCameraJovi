@@ -44,6 +44,8 @@ export default function Salvar() {
   const [materias, setMaterias] = useState(MATERIAS_INICIAIS);
   const [historico, setHistorico] = useState([]);
   const [selecionada, setSelecionada] = useState(MATERIAS_INICIAIS[0].nome);
+  const [aulaSugerida, setAulaSugerida] = useState(null);
+  const [alterandoMateria, setAlterandoMateria] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState("");
   const [itemHistoricoAberto, setItemHistoricoAberto] = useState(null);
@@ -70,9 +72,27 @@ export default function Salvar() {
 
       const dadosDoCaderno = carregarCadernoLocal();
 
-      setMaterias(dadosDoCaderno.materias);
+      const captura = obterCaptura();
+      const aula =
+        captura?.id ===
+        dadosDoRegistro(obterUltimaAnaliseSerializada())?.capturaId
+          ? captura.aula
+          : null;
+      const lista = [...dadosDoCaderno.materias];
+      const materia =
+        aula &&
+        (lista.find(
+          (m) =>
+            m.nome.toLocaleLowerCase() === aula.materia.toLocaleLowerCase(),
+        )?.nome ||
+          aula.materia);
+      if (materia && !lista.some((m) => m.nome === materia))
+        lista.push({ nome: materia, quantidade: 0 });
+      setAulaSugerida(aula ? { ...aula, materia } : null);
+      setAlterandoMateria(!aula);
+      setMaterias(lista);
       setHistorico(dadosDoCaderno.historico);
-      setSelecionada(dadosDoCaderno.materiaSelecionada);
+      setSelecionada(materia || dadosDoCaderno.materiaSelecionada);
 
       setArmazenamentoCarregado(true);
     }
@@ -133,7 +153,10 @@ export default function Salvar() {
     try {
       setSalvando(true);
       setAviso("SALVANDO...");
-      const resultado = await salvarAnalise(selecionada, analise);
+      const resultado =
+        analise.analysis_type === "scan"
+          ? { materia: selecionada }
+          : await salvarAnalise(selecionada, analise);
       const idDoRegistro = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const captura = obterCaptura();
       let imagemId = null;
@@ -152,6 +175,9 @@ export default function Salvar() {
         }
       }
 
+      if (analise.analysis_type === "scan" && fotoNaoSalva) {
+        throw new Error("Não foi possível guardar a foto. Tente novamente.");
+      }
       const novoRegistro = {
         id: idDoRegistro,
         materia: resultado.materia,
@@ -160,8 +186,26 @@ export default function Salvar() {
         salvoEm: new Date().toISOString(),
         analise,
         imagemId,
+        capturadaEm: captura?.criadaEm || null,
+        aula: captura?.aula || null,
       };
       const historicoAtualizado = [novoRegistro, ...historico];
+      const materiasAtualizadas = materias.map((materia) => ({
+        ...materia,
+        quantidade: historicoAtualizado.filter(
+          (item) => item.materia === materia.nome,
+        ).length,
+      }));
+      if (
+        !salvarCadernoLocal({
+          materias: materiasAtualizadas,
+          historico: historicoAtualizado,
+          materiaSelecionada: selecionada,
+        })
+      )
+        throw new Error(
+          "Não foi possível guardar o registro no navegador. Libere espaço e tente novamente.",
+        );
 
       setMaterias((atuais) =>
         atuais.map((materia) =>
@@ -190,74 +234,164 @@ export default function Salvar() {
         <CabecalhoAcao titulo="Salvar em Matéria" />
 
         <div className={actionBody}>
-          {aviso && <p className="rounded-md bg-[#ffc107] px-3.5 py-2 text-center text-[11px] font-bold text-[#1a1a1a]">{aviso}</p>}
+          {aviso && (
+            <p className="rounded-md bg-[#ffc107] px-3.5 py-2 text-center text-[11px] font-bold text-[#1a1a1a]">
+              {aviso}
+            </p>
+          )}
 
           {!carregandoAnalise && !analise ? (
             <div className={`${analysisState} border-[#ffc107]/45`}>
-              <strong className="text-[15px] text-white">Nenhuma análise disponível</strong>
-              <span>Primeiro capture uma imagem e gere um resultado com a Jovi.</span>
-              <Link className="rounded-[9px] border border-[#ffc107] px-3 py-[9px] text-xs font-bold text-[#ffc107] no-underline" href="/">Voltar à câmera</Link>
+              <strong className="text-[15px] text-white">
+                Nenhuma análise disponível
+              </strong>
+              <span>
+                Primeiro capture uma imagem e gere um resultado com a Jovi.
+              </span>
+              <Link
+                className="rounded-[9px] border border-[#ffc107] px-3 py-[9px] text-xs font-bold text-[#ffc107] no-underline"
+                href="/"
+              >
+                Voltar à câmera
+              </Link>
             </div>
           ) : (
             <>
               {analise && (
                 <div className="flex flex-col gap-[3px] rounded-[9px] border-l-[3px] border-[#ffc107] bg-[#242424] px-3.5 py-3">
-                  <span className="text-[10px] font-bold uppercase text-[#ffc107]">{analise.analysis_type}</span>
-                  <strong className="text-sm text-white">{analise.subject}</strong>
-                  <small className="text-[10px] text-[#999]">A foto original será incluída neste registro.</small>
+                  <span className="text-[10px] font-bold uppercase text-[#ffc107]">
+                    {analise.analysis_type}
+                  </span>
+                  <strong className="text-sm text-white">
+                    {analise.subject}
+                  </strong>
+                  <small className="text-[10px] text-[#999]">
+                    A foto original será incluída neste registro.
+                  </small>
                 </div>
               )}
 
-              <p className="text-center text-[13px] text-[#888]">
-                Escolha a disciplina onde esta análise será salva
-              </p>
-
-              <div className="flex flex-col gap-2.5">
-                {materias.map((materia) => (
+              {aulaSugerida && (
+                <div className="rounded-xl border border-[#ffc107]/30 p-4">
+                  <strong className="text-base text-[#ffc107]">
+                    Salvar em {selecionada}
+                  </strong>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">
+                    {selecionada === aulaSugerida.materia
+                      ? "Disciplina identificada pelo horário da foto."
+                      : "Disciplina alterada por você."}{" "}
+                    Aula: {aulaSugerida.inicio}–{aulaSugerida.fim}.
+                  </p>
                   <button
-                    className={`flex cursor-pointer items-center gap-3.5 rounded-xl border p-4 text-left text-inherit ${materia.nome === selecionada ? "border-[#ffc107] bg-[#ffc107]/[0.06]" : "border-[#333] bg-[#242424]"}`}
                     type="button"
-                    aria-pressed={materia.nome === selecionada}
-                    onClick={() => setSelecionada(materia.nome)}
-                    key={materia.nome}
+                    className="mt-2 min-h-11 text-sm font-bold text-[#ffc107]"
+                    onClick={() => setAlterandoMateria(!alterandoMateria)}
                   >
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#ffc107]/10 text-[#ffc107]">
-                      <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                      </svg>
-                    </span>
-                    <span className="flex flex-1 flex-col gap-[3px]">
-                      <strong className="text-sm text-white">{materia.nome}</strong>
-                      <small className="text-[11px] text-[#777]">{materia.quantidade} scans salvos</small>
-                    </span>
-                    <span className={`flex size-[22px] items-center justify-center rounded-full border-2 ${materia.nome === selecionada ? "border-[#ffc107] bg-[#ffc107]" : "border-[#444]"}`}>
-                      {materia.nome === selecionada && <span className="size-2 rounded-full bg-[#1a1a1a]" />}
-                    </span>
+                    {alterandoMateria
+                      ? "Fechar disciplinas"
+                      : "Alterar disciplina"}
                   </button>
-                ))}
+                </div>
+              )}
+              {!aulaSugerida && (
+                <p className="text-sm text-zinc-300">
+                  Sem aula identificada no horário da foto. Escolha a disciplina
+                  ou{" "}
+                  <Link href="/horarios" className="text-[#ffc107]">
+                    configure sua grade
+                  </Link>
+                  .
+                </p>
+              )}
+              {alterandoMateria && (
+                <>
+                  <p className="text-center text-[13px] text-[#888]">
+                    Escolha a disciplina onde esta análise será salva
+                  </p>
 
-                <button className="flex cursor-pointer items-center gap-3.5 rounded-xl border border-[#333] bg-[#242424] p-4 text-left text-inherit" type="button" onClick={criarMateria}>
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#ffc107]/10 text-[#ffc107]">
-                    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                  </span>
-                  <span className="flex flex-1 flex-col gap-[3px]"><strong className="text-sm text-white">Criar nova matéria...</strong></span>
-                </button>
-              </div>
+                  <div className="flex flex-col gap-2.5">
+                    {materias.map((materia) => (
+                      <button
+                        className={`flex cursor-pointer items-center gap-3.5 rounded-xl border p-4 text-left text-inherit ${materia.nome === selecionada ? "border-[#ffc107] bg-[#ffc107]/[0.06]" : "border-[#333] bg-[#242424]"}`}
+                        type="button"
+                        aria-pressed={materia.nome === selecionada}
+                        onClick={() => setSelecionada(materia.nome)}
+                        key={materia.nome}
+                      >
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#ffc107]/10 text-[#ffc107]">
+                          <svg
+                            className="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden="true"
+                          >
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                          </svg>
+                        </span>
+                        <span className="flex flex-1 flex-col gap-[3px]">
+                          <strong className="text-sm text-white">
+                            {materia.nome}
+                          </strong>
+                          <small className="text-[11px] text-[#777]">
+                            {materia.quantidade} scans salvos
+                          </small>
+                        </span>
+                        <span
+                          className={`flex size-[22px] items-center justify-center rounded-full border-2 ${materia.nome === selecionada ? "border-[#ffc107] bg-[#ffc107]" : "border-[#444]"}`}
+                        >
+                          {materia.nome === selecionada && (
+                            <span className="size-2 rounded-full bg-[#1a1a1a]" />
+                          )}
+                        </span>
+                      </button>
+                    ))}
+
+                    <button
+                      className="flex cursor-pointer items-center gap-3.5 rounded-xl border border-[#333] bg-[#242424] p-4 text-left text-inherit"
+                      type="button"
+                      onClick={criarMateria}
+                    >
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#ffc107]/10 text-[#ffc107]">
+                        <svg
+                          className="size-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          aria-hidden="true"
+                        >
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </span>
+                      <span className="flex flex-1 flex-col gap-[3px]">
+                        <strong className="text-sm text-white">
+                          Criar nova matéria...
+                        </strong>
+                      </span>
+                    </button>
+                  </div>
+                </>
+              )}
 
               <button
                 className="w-full cursor-pointer rounded-xl border-0 bg-[#ffc107] p-[15px] text-[15px] font-bold text-[#1a1a1a] disabled:cursor-wait disabled:opacity-55"
                 type="button"
                 onClick={confirmarSalvamento}
-                disabled={salvando || !analise}
+                disabled={salvando || !analise || !armazenamentoCarregado}
               >
                 {salvando ? "Salvando..." : "Salvar aqui"}
               </button>
 
-              {(aviso.startsWith("FOTO E ANÁLISE") || aviso.startsWith("ANÁLISE SALVA")) && (
-                <button className="cursor-pointer rounded-[10px] border border-[#444] bg-transparent p-[11px] font-semibold text-white" type="button" onClick={() => router.push("/")}>
+              {(aviso.startsWith("FOTO E ANÁLISE") ||
+                aviso.startsWith("ANÁLISE SALVA")) && (
+                <button
+                  className="cursor-pointer rounded-[10px] border border-[#444] bg-transparent p-[11px] font-semibold text-white"
+                  type="button"
+                  onClick={() => router.push("/")}
+                >
                   Voltar à câmera
                 </button>
               )}
@@ -268,7 +402,9 @@ export default function Salvar() {
             <section className="flex flex-col gap-2.5 pt-1">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm text-white">Salvos recentemente</h2>
-                <span className="text-[10px] text-[#888]">{historico.length} salvos</span>
+                <span className="text-[10px] text-[#888]">
+                  {historico.length} salvos
+                </span>
               </div>
 
               <button
@@ -277,11 +413,26 @@ export default function Salvar() {
                 onClick={() => router.push("/caderno")}
               >
                 <span className="flex min-w-0 flex-col gap-[3px]">
-                  <strong className="text-xs font-extrabold">Ver caderno completo</strong>
-                  <small className="text-[9px] opacity-70">Todas as matérias e conteúdos salvos</small>
+                  <strong className="text-xs font-extrabold">
+                    Ver caderno completo
+                  </strong>
+                  <small className="text-[9px] opacity-70">
+                    Todas as matérias e conteúdos salvos
+                  </small>
                 </span>
-                <svg className="size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+                <svg
+                  className="size-5 shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 18l6-6-6-6"
+                  />
                 </svg>
               </button>
 

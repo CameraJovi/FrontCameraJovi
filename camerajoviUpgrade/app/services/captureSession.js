@@ -1,3 +1,5 @@
+import { carregarGrade, encontrarAula } from "./gradeAulas";
+
 const CHAVE_CAPTURA = "jovi:captura-atual";
 const CHAVE_ULTIMA_ANALISE = "jovi:ultima-analise";
 const PREFIXO_ANALISE = "jovi:analise:";
@@ -28,7 +30,7 @@ function blobParaDataUrl(blob) {
   });
 }
 
-export async function guardarCaptura(blob) {
+export async function guardarCaptura(blob, { modo = null, instante = new Date() } = {}) {
   const sessao = obterSessao();
 
   if (!sessao) {
@@ -39,7 +41,9 @@ export async function guardarCaptura(blob) {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     dataUrl: await blobParaDataUrl(blob),
     tipo: blob.type || "image/jpeg",
-    criadaEm: new Date().toISOString(),
+    criadaEm: instante.toISOString(),
+    modo,
+    aula: modo === "Estudante" ? encontrarAula(carregarGrade(), instante) : null,
   };
 
   try {
