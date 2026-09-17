@@ -11,6 +11,7 @@ from typing import Any
 from code_analysis import CODE_PROMPT, CodeAnalysis
 from dotenv import load_dotenv
 from google import genai
+from google.genai import errors
 from PIL import Image
 
 
@@ -21,12 +22,42 @@ MODEL_NAME = "gemini-3.6-flash"
 load_dotenv(BASE_DIR / ".env")
 
 
-def _get_client() -> genai.Client:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("GEMINI_API_KEY nao foi configurada no arquivo .env.")
+class GeminiQuotaExhausted(RuntimeError):
+    """Every configured key was rejected because of quota/rate limits."""
 
-    return genai.Client(api_key=api_key)
+
+class GeminiRequestError(Exception):
+    """A provider failure with no credentials or raw provider details."""
+
+
+def _get_api_keys() -> list[str]:
+    # Presence, rather than truthiness, gives the plural variable precedence.
+    configured = os.getenv("GEMINI_API_KEYS")
+    if configured is None:
+        configured = os.getenv("GEMINI_API_KEY", "")
+    keys = list(dict.fromkeys(key.strip() for key in configured.split(",") if key.strip()))
+    if not keys:
+        raise RuntimeError("Configure GEMINI_API_KEYS ou GEMINI_API_KEY no backend.")
+    return keys
+
+
+def _generate_content(**kwargs: Any) -> Any:
+    # The ordered list is local to each operation: always start with the paid key.
+    for api_key in _get_api_keys():
+        try:
+            with genai.Client(api_key=api_key) as client:
+                return client.models.generate_content(**kwargs)
+        except errors.APIError as exc:
+            if exc.code == 429 or exc.status == "RESOURCE_EXHAUSTED":
+                continue
+            raise GeminiRequestError("Nao foi possivel concluir a analise.") from None
+        except Exception:
+            # SDK/transport errors must not expose credentials or trigger fallback.
+            raise GeminiRequestError("Nao foi possivel concluir a analise.") from None
+
+    raise GeminiQuotaExhausted(
+        "Servico de analise temporariamente indisponivel. Tente novamente."
+    )
 
 
 def _strip_json_fence(text: str) -> str:
@@ -247,8 +278,7 @@ def analyse_image(image: Image.Image, analysis_type: str) -> dict[str, Any]:
     if analysis_type == "code":
         return analyse_code(image)
     prompt = _prompt_for(analysis_type)
-    client = _get_client()
-    response = client.models.generate_content(
+    response = _generate_content(
         model=MODEL_NAME,
         contents=[
             prompt,
@@ -356,8 +386,7 @@ def save_analysis(materia: str, analysis: dict[str, Any]) -> dict[str, str]:
 def analyse_code(image: Image.Image) -> dict[str, Any]:
     """Structured response validated before returning any model output to the UI."""
     try:
-        client = _get_client()
-        response = client.models.generate_content(
+        response = _generate_content(
             model=os.getenv("GEMINI_CODE_MODEL", MODEL_NAME),
             contents=[image],
             config={
@@ -368,6 +397,8 @@ def analyse_code(image: Image.Image) -> dict[str, Any]:
         )
         result = CodeAnalysis.model_validate_json(response.text or "")
         return {"analysis_type": "code", **result.model_dump()}
-    except Exception as exc:
+    except GeminiQuotaExhausted:
+        raise
+    except Exception:
         # Do not expose provider messages, credentials or raw responses to clients.
-        raise RuntimeError("A Jovi não conseguiu analisar o código. Tente novamente.") from exc
+        raise RuntimeError("A Jovi não conseguiu analisar o código. Tente novamente.") from None

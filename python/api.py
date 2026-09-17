@@ -9,7 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
-from jovi_ai import analyse_image, save_analysis
+from jovi_ai import GeminiQuotaExhausted, analyse_image, save_analysis
 
 
 app = FastAPI(title="Camera Jovi API", version="1.0.0")
@@ -36,6 +36,8 @@ class SaveRequest(BaseModel):
 
 
 def _http_error_from_exception(error: Exception) -> HTTPException:
+    if isinstance(error, GeminiQuotaExhausted):
+        return HTTPException(status_code=503, detail=str(error))
     if isinstance(error, ValueError):
         return HTTPException(status_code=400, detail=str(error))
     if isinstance(error, RuntimeError):
@@ -63,7 +65,7 @@ async def _analyse_upload(file: UploadFile, analysis_type: str) -> dict[str, Any
     image = await _image_from_upload(file)
 
     try:
-        return analyse_image(image, analysis_type)
+        return await run_in_threadpool(analyse_image, image, analysis_type)
     except Exception as exc:
         raise _http_error_from_exception(exc) from exc
 
@@ -102,6 +104,8 @@ async def analyse_code_upload(image: UploadFile = File(...)) -> dict[str, Any]:
     picture = await _image_from_upload(image)
     try:
         return await run_in_threadpool(analyse_image, picture, "code")
+    except GeminiQuotaExhausted as exc:
+        raise _http_error_from_exception(exc) from None
     except Exception as exc:
         raise HTTPException(
             status_code=502,

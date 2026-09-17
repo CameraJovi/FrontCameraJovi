@@ -272,10 +272,13 @@ Dentro da pasta `python`, crie um arquivo chamado:
 Adicione:
 
 ```env
-GEMINI_API_KEY=sua_chave_do_google_gemini
+GEMINI_API_KEYS=SUA_CHAVE_PRINCIPAL,SUA_CHAVE_FALLBACK_1,SUA_CHAVE_FALLBACK_2
 ```
 
-Substitua `sua_chave_do_google_gemini` pela sua chave real.
+Configure as chaves somente no backend, começando pela conta paga. A API sempre
+tenta a principal e usa as demais apenas diante de quota/rate limit. A variável
+antiga `GEMINI_API_KEY` continua aceita quando `GEMINI_API_KEYS` estiver ausente.
+Veja as regras e a configuração do Render em [python/README.md](python/README.md).
 
 ### Importante
 
@@ -603,7 +606,7 @@ python/.env
 existe e contém:
 
 ```env
-GEMINI_API_KEY=sua_chave
+GEMINI_API_KEYS=SUA_CHAVE_PRINCIPAL,SUA_CHAVE_FALLBACK
 ```
 
 Também confirme se a chave é válida e possui acesso à API utilizada pelo projeto.
@@ -717,11 +720,13 @@ Use `start` após o build, sem outra instância ocupando a porta 5500.
 Na pasta `python`, com o ambiente virtual ativo:
 
 ```bash
-python -m pip install httpx
-python -m unittest test_code_analysis -v
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s . -p "test_*.py" -v
 ```
 
-Os testes de código simulam o provedor e não consomem o Gemini. Para validar a integração real, teste uma captura com a API e uma chave válidas.
+Os testes da API simulam o provedor e não consomem o Gemini; incluem prioridade
+das chaves, fallback, contratos e health check. Para validar a integração real,
+teste uma captura com a API e uma chave válidas.
 
 ---
 
@@ -732,6 +737,12 @@ Repositório: [FrontCameraJovi](https://github.com/CameraJovi/FrontCameraJovi).
 Link informado do frontend: [Camera Jovi na Vercel](https://camerajovi-kappa.vercel.app).
 
 Antes da entrega, confirme se o deploy contém a versão atual e se a API pública está funcionando. Na Vercel, a pasta do frontend é `camerajoviUpgrade`; configure `NEXT_PUBLIC_JOVI_API_URL` com a URL HTTPS pública do backend e autorize a origem no CORS.
+
+O teste local de disponibilidade usa `http://127.0.0.1:8000/api/health`. O ping
+externo pelo cron-job.org está pendente da URL pública do Render; localhost não
+é acessível pelo agendador. O procedimento para GET aproximadamente a cada sete
+minutos está em [python/README.md](python/README.md#ping-externo-para-a-apresentação).
+Nenhum scheduler de autoping é executado dentro da API.
 
 No celular, localhost aponta para o próprio aparelho. A câmera exige um contexto seguro, como HTTPS, e a API precisa ser acessível pelo dispositivo. Não use localhost como endereço da API em um frontend publicado.
 

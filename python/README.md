@@ -28,7 +28,7 @@ Backend do Câmera Jovi desenvolvido com FastAPI. A API recebe imagens capturada
 ## Pré-requisitos
 
 - Python 3.10 ou superior;
-- uma chave válida da API Google Gemini;
+- uma ou mais chaves válidas da API Google Gemini;
 - conexão com a internet;
 - frontend React executando em `http://localhost:5500` ou `http://127.0.0.1:5500`.
 
@@ -64,7 +64,7 @@ Instale as dependências:
 python -m pip install -r requirements.txt
 ```
 
-## Configuração da chave do Gemini
+## Configuração das chaves do Gemini
 
 Copie o arquivo `.env.example` para `.env`.
 
@@ -80,13 +80,43 @@ No Linux ou macOS:
 cp .env.example .env
 ```
 
-Depois, abra o arquivo `.env` e substitua o valor de exemplo pela sua chave:
+Depois, abra o arquivo `.env` e configure as chaves em ordem de prioridade:
 
 ```env
-GEMINI_API_KEY=sua_chave_do_google_gemini
+GEMINI_API_KEYS=SUA_CHAVE_PRINCIPAL,SUA_CHAVE_FALLBACK_1,SUA_CHAVE_FALLBACK_2
 ```
 
-O arquivo `.env` está no `.gitignore` e não deve ser enviado ao GitHub.
+A primeira chave deve pertencer à conta paga. As demais são alternativas, na ordem
+informada. Uma única chave também pode ser usada em `GEMINI_API_KEYS`.
+
+- Cada operação começa pela primeira chave, inclusive depois de uma operação que
+  precisou de fallback. Não há round-robin, cooldown ou chave ativa compartilhada.
+- Somente HTTP 429 ou `RESOURCE_EXHAUSTED` estruturado pelo SDK provoca tentativa
+  com a próxima chave, mantendo imagem, prompt, modelo e configuração da operação.
+- Erros de autenticação, validação, imagem, timeout, outros erros do provedor ou
+  resposta inválida não provocam troca de chave. Uma falha desse tipo também
+  interrompe a sequência se acontecer em uma chave de fallback.
+- Se todas as chaves atingirem quota/rate limit, os quatro endpoints de análise
+  retornam HTTP 503 com
+  `{"detail":"Servico de analise temporariamente indisponivel. Tente novamente."}`.
+- Espaços e entradas vazias são removidos; duplicatas são ignoradas, preservando
+  a ordem. `GEMINI_API_KEYS` tem precedência sobre `GEMINI_API_KEY`; elas não são
+  combinadas. Se a variável plural existir mas estiver vazia, a análise retorna
+  um erro de configuração, sem usar silenciosamente a variável antiga.
+- Para manter a configuração antiga, remova `GEMINI_API_KEYS` e continue usando
+  `GEMINI_API_KEY`. O script legado `script.py` continua usando apenas a variável
+  singular; este fallback pertence à API FastAPI.
+
+O carregamento de `python/.env` continua usando `python-dotenv`, sem sobrescrever
+variáveis já definidas no processo. No Render, configure `GEMINI_API_KEYS` em
+**Environment** no serviço Python e aplique a alteração/redeploy. Não coloque
+essas chaves em `NEXT_PUBLIC_*`, na URL do ping, no frontend ou em arquivos de deploy
+versionados. Não é necessário alterar `NEXT_PUBLIC_JOVI_API_URL` por causa do fallback.
+
+Os arquivos `.env` e suas variantes locais estão no `.gitignore`; somente
+`.env.example`, com placeholders, deve ser versionado. Nenhuma chave real deve ser
+incluída em commits, logs ou mensagens de erro. O health check funciona mesmo sem
+chaves configuradas e não verifica a disponibilidade do Gemini.
 
 ## Como executar
 
@@ -112,7 +142,7 @@ Abra o health check no navegador:
 http://127.0.0.1:8000/api/health
 ```
 
-A resposta esperada é:
+A resposta esperada, com HTTP 200, é:
 
 ```json
 {
@@ -120,6 +150,50 @@ A resposta esperada é:
   "service": "camera-jovi-api"
 }
 ```
+
+Esse endpoint retorna somente um objeto fixo: não chama Gemini, não cria clientes,
+não lê arquivos e não depende de banco ou serviço externo. As análises síncronas
+rodam no thread pool para não bloquear o event loop enquanto aguardam o Gemini.
+
+## Ping externo para a apresentação
+
+Por enquanto, o destino disponível é **local**:
+
+```powershell
+curl.exe --fail http://127.0.0.1:8000/api/health
+```
+
+Inicie a API com o comando da seção anterior antes de testar. Esse comando faz
+um único GET. Nenhum agendamento foi ativado e a API não contém loop, thread de
+autoping ou scheduler. Um serviço externo não consegue alcançar o localhost do
+seu computador: não configure esse endereço no cron-job.org.
+
+Quando houver URL pública do Render, configure no painel do
+[cron-job.org](https://cron-job.org/en/):
+
+1. Crie um cron job chamado `DeepY API health` e informe a URL HTTPS pública do
+   serviço Python seguida de `/api/health`, sem duplicar o caminho. Exemplo
+   ilustrativo: `https://SEU-SERVICO.onrender.com/api/health`.
+2. Escolha método **GET**, sem corpo, autenticação ou headers com chaves Gemini.
+3. No agendamento personalizado, selecione todos os dias, meses e horas; nos
+   minutos, selecione `0,7,14,21,28,35,42,49,56` (equivalente a `*/7 * * * *`).
+   São intervalos de sete minutos, exceto na virada da hora, quando são quatro.
+4. Ative notificações de falha, salve e habilite o job somente depois de definir
+   o endereço público. Execute o teste manual e confira HTTP 200 e o JSON esperado.
+5. Confira no histórico pelo menos duas execuções agendadas bem-sucedidas e faça
+   um GET manual antes da apresentação para confirmar que a aplicação está pronta.
+
+No serviço web do Render, configure também **Health Check Path** como
+`/api/health`; essa configuração não substitui o ping externo. O repositório não
+contém infraestrutura de cron, e nenhuma alteração adicional de código é
+necessária quando a URL chegar: a ativação acontece no painel externo.
+
+O plano gratuito do Render pode suspender o serviço após 15 minutos sem tráfego;
+o ping busca reduzir essa ocorrência, mas não garante disponibilidade diante de
+reinícios, limites do plano ou falhas de rede. Um primeiro GET após suspensão
+pode demorar e exceder o timeout do agendador; aguarde a inicialização e teste
+novamente. Consulte as limitações do [Render Free](https://render.com/docs/free)
+e do [cron-job.org](https://cron-job.org/en/faq/).
 
 A documentação interativa gerada pelo FastAPI está disponível em:
 
@@ -193,7 +267,10 @@ O endpoint de salvamento recebe JSON no seguinte formato:
 
 ### Erro 500 nas análises
 
-Confirme se a chave está correta, se o arquivo `.env` está dentro de `python` e se existe conexão com a internet. O terminal da API também apresenta informações sobre o erro ocorrido.
+Confirme se as chaves estão corretas, se o arquivo `.env` está dentro de `python`
+ou as variáveis foram definidas no Render, e se existe conexão com a internet.
+Mensagens do provedor são sanitizadas; não habilite logs de credenciais para
+diagnosticar falhas. HTTP 503 indica que todas as chaves tentadas atingiram quota.
 
 ### Frontend não acessa a API
 
@@ -211,18 +288,25 @@ Fechar o terminal ou pressionar `Ctrl + C` encerra o backend.
 
 ## Jovi Code
 
-Análise de código por foto disponível em `POST /api/codigo`. Veja o [contrato, configuração e testes](CODIGO.md).
+Análise de código por foto disponível em `POST /api/codigo`. O contrato está em
+`code_analysis.py`; configuração e testes estão descritos neste documento.
 A grade de aulas e a associação por horário são processadas no frontend, sem chamada ao Gemini. Fotos simples do Scan e registros de Jovi Code são guardados no Caderno local; esse fluxo não equivale a sincronização de dados no servidor.
 
-O endpoint de código valida a resposta estruturada antes de entregá-la ao frontend. Sem código legível, retorna `status: "no_code"`; falhas de análise retornam HTTP 502. `GEMINI_CODE_MODEL` pode ser configurado no `.env` para substituir o modelo padrão somente na análise de código.
+O endpoint de código valida a resposta estruturada antes de entregá-la ao frontend. Sem código legível, retorna `status: "no_code"`; falhas de análise retornam HTTP 502, exceto esgotamento de quota de todas as chaves, que retorna HTTP 503. `GEMINI_CODE_MODEL` pode ser configurado no `.env` para substituir o modelo padrão somente na análise de código.
 
-## Testes de código
+## Testes da API e disponibilidade
 
 Com o ambiente virtual ativo, na pasta `python`:
 
 ```bash
-python -m pip install httpx
-python -m unittest test_code_analysis -v
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s . -p "test_*.py" -v
 ```
 
-Os testes simulam o provedor Gemini e não consomem a API. A validação real requer uma chave válida, acesso ao modelo configurado e conectividade.
+Os testes em `test_api_availability.py` simulam o provedor Gemini e não consomem
+quota. Cobrem configuração, prioridade e fallback, erros sem troca de chave,
+ausência de credenciais em respostas/logs de erro, contratos das quatro análises,
+validação de uploads, salvamento e health check durante uma análise em andamento.
+Use um ambiente virtual com as dependências declaradas, não um SDK global antigo.
+A validação real requer chaves válidas, acesso ao modelo configurado e conectividade;
+os testes simulados não comprovam quota ou disponibilidade das contas no Gemini.
