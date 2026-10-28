@@ -176,11 +176,11 @@ Não existe autenticação no frontend. Nenhum usuário ou senha é necessário 
 
 ## Uso de inteligência artificial
 
-Na aplicação, o Tesseract.js é utilizado no navegador para reconhecer possíveis e-mails e telefones no SmartPix, enquanto as imagens do Modo Estudante são enviadas para a API Python, que utiliza o Google Gemini para gerar resumos, flashcards, resoluções matemáticas e análises de código. Durante o desenvolvimento, a IA como o Codex foi utilizada como apoio na implementação e configuração da biblioteca Tesseract.js, principalmente nos ajustes de recorte, contraste, processamento da imagem e identificação dos padrões de e-mail e telefone, pois o OCR inicialmente apresentava dificuldade para reconhecer esses dados. A IA também auxiliou na melhoria do sistema de componentes React, na comunicação entre componentes por meio de props, na organização dos arquivos e na revisão do código. A IA também apoiou o Jovi Code, a grade de aulas, a responsividade e a documentação. As sugestões exigem revisão pela equipe e testes funcionais. A identificação da disciplina pelo horário é uma regra local, não uma análise de IA.
+Na aplicação, o Tesseract.js é utilizado no navegador para reconhecer possíveis e-mails e telefones no SmartPix, enquanto as imagens do Modo Estudante são enviadas para a API Python, que utiliza o Google Gemini para gerar resumos, flashcards, resoluções matemáticas e análises de código. Durante o desenvolvimento, a IA como o Codex foi utilizada como apoio na implementação e configuração da biblioteca Tesseract.js, principalmente nos ajustes de recorte, contraste, processamento da imagem e identificação dos padrões de e-mail e telefone, pois o OCR inicialmente apresentava dificuldade para reconhecer esses dados. A IA também auxiliou na melhoria do sistema de componentes React, na comunicação entre componentes por meio de props, na organização dos arquivos e na revisão do código. A IA também apoiou o Jovi Code, a grade de aulas, a responsividade e a documentação. Todas as sugestões foram analisadas, adaptadas ao nível e à estrutura do projeto e testadas pela equipe antes de serem mantidas na aplicação.
 
 ## Deploy
 
-**Vercel:** https://camerajovi-kappa.vercel.app
+**Vercel:** https://front-camera-jovi.vercel.app
 
 No ambiente publicado, configure a raiz do frontend como `camerajoviUpgrade` e `NEXT_PUBLIC_JOVI_API_URL` com o endereço HTTPS público da API Python. A origem do frontend deve estar autorizada no CORS do backend. Confirme se o deploy contém a versão atual antes da entrega.
 

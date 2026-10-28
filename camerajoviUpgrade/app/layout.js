@@ -3,7 +3,7 @@ import "./globals.css";
 export const viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export const metadata = {
-  metadataBase: new URL("https://camerajovi-kappa.vercel.app"),
+  metadataBase: new URL("https://front-camera-jovi.vercel.app"),
   title: "Câmera Jovi | Estude com inteligência",
   description:
     "Câmera inteligente para estudantes: capture conteúdos e gere resumos, flashcards e resoluções com inteligência artificial.",
@@ -12,7 +12,7 @@ export const metadata = {
     title: "Câmera Jovi | Estude com inteligência",
     description:
       "Capture conteúdos e transforme imagens em resumos, flashcards e resoluções para estudar melhor.",
-    url: "https://camerajovi-kappa.vercel.app",
+    url: "https://front-camera-jovi.vercel.app",
     siteName: "Câmera Jovi",
     locale: "pt_BR",
     type: "website",

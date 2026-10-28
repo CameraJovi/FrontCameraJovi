@@ -695,13 +695,7 @@ O `--reload` do Uvicorn permite que alterações no código do backend sejam det
 
 # Uso de inteligência artificial
 
-Na aplicação, o Tesseract.js é utilizado no navegador para reconhecer possíveis e-mails e telefones no SmartPix, enquanto as imagens do Modo Estudante são enviadas para a API Python, que utiliza o Google Gemini para gerar resumos, flashcards, resoluções matemáticas e análises de código. A associação de disciplina por horário é uma regra local, sem uso de IA. Durante o desenvolvimento, uma ferramenta de IA generativa foi utilizada como apoio na implementação e configuração da biblioteca Tesseract.js, principalmente nos ajustes de recorte, contraste, processamento da imagem e identificação dos padrões de e-mail e telefone, pois o OCR inicialmente apresentava dificuldade para reconhecer esses dados. A IA também auxiliou na melhoria do sistema de componentes React, na comunicação entre componentes por meio de props, na organização dos arquivos e na revisão do código. A IA também apoiou a implementação do Jovi Code, da grade de aulas, dos ajustes responsivos e da documentação. As sugestões precisam de revisão da equipe, e testes automatizados não substituem a validação funcional em dispositivos reais.
-
----
-
-# Usuários e senhas para teste
-
-Não há autenticação implementada. Nenhum usuário ou senha é necessário; os dados do Caderno são locais ao navegador.
+Na aplicação, o Tesseract.js é utilizado no navegador para reconhecer possíveis e-mails e telefones no SmartPix, enquanto as imagens do Modo Estudante são enviadas para a API Python, que utiliza o Google Gemini para gerar resumos, flashcards, resoluções matemáticas e análises de código. A associação de disciplina por horário é uma regra local, sem uso de IA. Durante o desenvolvimento, uma ferramenta de IA generativa foi utilizada como apoio na implementação e configuração da biblioteca Tesseract.js, principalmente nos ajustes de recorte, contraste, processamento da imagem e identificação dos padrões de e-mail e telefone, pois o OCR inicialmente apresentava dificuldade para reconhecer esses dados. A IA também auxiliou na melhoria do sistema de componentes React, na comunicação entre componentes por meio de props, na organização dos arquivos e na revisão do código. A IA também apoiou a implementação do Jovi Code, da grade de aulas, dos ajustes responsivos e da documentação. Todas as sugestões foram analisadas, adaptadas ao nível e à estrutura do projeto e testadas pela equipe antes de serem mantidas na aplicação.
 
 ---
 
@@ -734,7 +728,7 @@ teste uma captura com a API e uma chave válidas.
 
 Repositório: [FrontCameraJovi](https://github.com/CameraJovi/FrontCameraJovi).
 
-Link informado do frontend: [Camera Jovi na Vercel](https://camerajovi-kappa.vercel.app).
+Link informado do frontend: [Camera Jovi na Vercel](https://front-camera-jovi.vercel.app).
 
 Antes da entrega, confirme se o deploy contém a versão atual e se a API pública está funcionando. Na Vercel, a pasta do frontend é `camerajoviUpgrade`; configure `NEXT_PUBLIC_JOVI_API_URL` com a URL HTTPS pública do backend e autorize a origem no CORS.
 
