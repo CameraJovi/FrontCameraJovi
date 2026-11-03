@@ -728,17 +728,7 @@ teste uma captura com a API e uma chave válidas.
 
 Repositório: [FrontCameraJovi](https://github.com/CameraJovi/FrontCameraJovi).
 
-Link informado do frontend: [Camera Jovi na Vercel](https://front-camera-jovi.vercel.app).
-
-Antes da entrega, confirme se o deploy contém a versão atual e se a API pública está funcionando. Na Vercel, a pasta do frontend é `camerajoviUpgrade`; configure `NEXT_PUBLIC_JOVI_API_URL` com a URL HTTPS pública do backend e autorize a origem no CORS.
-
-O teste local de disponibilidade usa `http://127.0.0.1:8000/api/health`. O ping
-externo pelo cron-job.org está pendente da URL pública do Render; localhost não
-é acessível pelo agendador. O procedimento para GET aproximadamente a cada sete
-minutos está em [python/README.md](python/README.md#ping-externo-para-a-apresentação).
-Nenhum scheduler de autoping é executado dentro da API.
-
-No celular, localhost aponta para o próprio aparelho. A câmera exige um contexto seguro, como HTTPS, e a API precisa ser acessível pelo dispositivo. Não use localhost como endereço da API em um frontend publicado.
+Link do frontend: [Camera Jovi na Vercel](https://front-camera-jovi.vercel.app).
 
 ---
 
